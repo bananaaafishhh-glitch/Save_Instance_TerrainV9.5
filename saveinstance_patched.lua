@@ -1145,15 +1145,11 @@ do
 		-- On fallback sur Size puis Vector3(1,1,1) pour éviter nil.
 		-- =====================================================================
 		PartOperation = {
+			-- InitialSize retourne Size (taille réelle) et non MeshSize
+			-- pour éviter la mauvaise taille sur les unions converties en Part.
 			InitialSize = function(instance)
-				-- Tentative 1 : MeshSize (propriété native des PartOperation)
-				local ok, r = pcall(index, instance, "MeshSize")
+				local ok, r = pcall(index, instance, "Size")
 				if ok and r ~= nil then return r end
-				-- Tentative 2 : Size (fallback si MeshSize inaccessible)
-				local ok2, r2 = pcall(index, instance, "Size")
-				if ok2 and r2 ~= nil then return r2 end
-				-- Dernier recours : vecteur unité pour éviter nil et crash
-				warn("[SaveInstance] Impossible de lire InitialSize/MeshSize sur " .. instance:GetFullName())
 				return Vector3.new(1, 1, 1)
 			end,
 		},
@@ -1548,10 +1544,11 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		},
 
 		-- =====================================================================
-		-- TreatUnionsAsParts = false : on garde les unions comme PartOperation
-		-- pour conserver leur vraie taille (Size), évite la mauvaise taille
-		-- causée par MeshSize lors de la conversion en Part.
-		TreatUnionsAsParts = false,
+		-- BUG FIX #1 (suite) : TreatUnionsAsParts = true par défaut
+		-- Convertit les UnionOperation en Part pour éviter les crashes liés
+		-- à la lecture de propriétés NotScriptable sur les unions.
+		-- =====================================================================
+		TreatUnionsAsParts = true,
 
 		IgnoreSharedStrings = EXECUTOR_NAME ~= "Wave" and true,
 		SharedStringOverwrite = false,
