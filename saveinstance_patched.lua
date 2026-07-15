@@ -1548,11 +1548,10 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		},
 
 		-- =====================================================================
-		-- BUG FIX #1 (suite) : TreatUnionsAsParts = true par défaut
-		-- Convertit les UnionOperation en Part pour éviter les crashes liés
-		-- à la lecture de propriétés NotScriptable sur les unions.
-		-- =====================================================================
-		TreatUnionsAsParts = true,
+		-- TreatUnionsAsParts = false : on garde les unions comme PartOperation
+		-- pour conserver leur vraie taille (Size), évite la mauvaise taille
+		-- causée par MeshSize lors de la conversion en Part.
+		TreatUnionsAsParts = false,
 
 		IgnoreSharedStrings = EXECUTOR_NAME ~= "Wave" and true,
 		SharedStringOverwrite = false,
