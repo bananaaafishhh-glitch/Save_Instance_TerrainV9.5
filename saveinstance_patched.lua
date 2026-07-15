@@ -1493,7 +1493,12 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		IgnoreDefaultPlayerScripts = EXECUTOR_NAME ~= "Wave" and true,
 		SaveBytecode = false,
 
-		IgnoreProperties = {},
+		IgnoreProperties = {
+			-- InitialSize sur PartOperation contient MeshSize (taille du mesh original)
+			-- et non Size (taille réelle), ce qui cause une mauvaise taille sur les unions
+			-- converties en Part. On l'ignore complètement, Size sera utilisé à la place.
+			"InitialSize",
+		},
 
 		IgnoreList = { "CoreGui", "CorePackages" },
 
