@@ -1140,7 +1140,18 @@ do
 			end,
 		},
 		-- =====================================================================
-		PartOperation = { InitialSize = "MeshSize" },
+		PartOperation = {
+			-- Quand TreatUnionsAsParts=true, l'union est convertie en Part.
+			-- InitialSize doit retourner Size (taille réelle) et non MeshSize
+			-- pour que la Part convertie ait la bonne taille dans Studio.
+			InitialSize = function(instance)
+				local ok, r = pcall(index, instance, "Size")
+				if ok and r ~= nil then return r end
+				local ok2, r2 = pcall(index, instance, "MeshSize")
+				if ok2 and r2 ~= nil then return r2 end
+				return Vector3.new(1, 1, 1)
+			end,
+		},
 		Part = { shape = "Shape" },
 		TrussPart = { style = "Style" },
 		FormFactorPart = {
@@ -1438,7 +1449,31 @@ do
 end
 
 local inherited_properties = {}
-local default_instances = {}
+local default_instances = {
+	-- Classes non créables via Instance.new() -- pré-remplies pour éviter les erreurs
+	Terrain = {},
+	Players = {},
+	Lighting = {},
+	MaterialService = {},
+	ReplicatedFirst = {},
+	ReplicatedStorage = {},
+	ServerScriptService = {},
+	ServerStorage = {},
+	StarterGui = {},
+	StarterPack = {},
+	StarterPlayer = {},
+	StarterPlayerScripts = {},
+	StarterCharacterScripts = {},
+	Teams = {},
+	SoundService = {},
+	TextChatService = {},
+	Chat = {},
+	JointsService = {},
+	LocalizationService = {},
+	Workspace = {},
+	Status = {},
+	PackageLink = {},
+}
 local referents, ref_size = {}, 0
 
 local GLOBAL_ENV = getgenv and getgenv() or _G or shared
@@ -1529,6 +1564,14 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 			"StudioData",
 			"TextSource",
 			"TouchTransmitter",
+			-- Classes absentes du Mini-API-Dump (nouvelles classes Roblox)
+			"AudioFilter",
+			"AudioLimiter",
+			"BodyPartDescription",
+			"AccessoryDescription",
+			"UIDragDetector",
+			"UIFlexItem",
+			"ChannelTabsConfiguration",
 		},
 
 		-- =====================================================================
@@ -1536,7 +1579,7 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		-- Convertit les UnionOperation en Part pour éviter les crashes liés
 		-- à la lecture de propriétés NotScriptable sur les unions.
 		-- =====================================================================
-		TreatUnionsAsParts = false,
+		TreatUnionsAsParts = true,
 
 		IgnoreSharedStrings = EXECUTOR_NAME ~= "Wave" and true,
 		SharedStringOverwrite = false,
