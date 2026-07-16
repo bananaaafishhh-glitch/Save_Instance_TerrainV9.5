@@ -1140,18 +1140,7 @@ do
 			end,
 		},
 		-- =====================================================================
-		PartOperation = {
-			-- Quand TreatUnionsAsParts=true, l'union est convertie en Part.
-			-- InitialSize doit retourner Size (taille réelle) et non MeshSize
-			-- pour que la Part convertie ait la bonne taille dans Studio.
-			InitialSize = function(instance)
-				local ok, r = pcall(index, instance, "Size")
-				if ok and r ~= nil then return r end
-				local ok2, r2 = pcall(index, instance, "MeshSize")
-				if ok2 and r2 ~= nil then return r2 end
-				return Vector3.new(1, 1, 1)
-			end,
-		},
+		PartOperation = { InitialSize = "MeshSize" },
 		Part = { shape = "Shape" },
 		TrussPart = { style = "Style" },
 		FormFactorPart = {
@@ -2416,25 +2405,8 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 					end
 				else
 					if TreatUnionsAsParts and instance:IsA("PartOperation") then
-						-- Lire Size AVANT la conversion en Part
-						-- pour éviter que InitialSize (MeshSize) écrase la vraie taille
-						local ok_size, real_size = pcall(index, instance, "Size")
 						ClassName, InstanceOverride = "Part", replaceClassName(instance, InstanceName, instance.ClassName)
 						ClassNameOverride = "BasePart"
-						-- Injecter Size dans l'override pour qu'il soit utilisé à la place de InitialSize
-						if ok_size and real_size then
-							if not InstanceOverride then
-								InstanceOverride = InstancesOverrides[instance]
-							end
-							if not InstanceOverride then
-								InstanceOverride = { Properties = {} }
-								InstancesOverrides[instance] = InstanceOverride
-							end
-							if not InstanceOverride.Properties then
-								InstanceOverride.Properties = {}
-							end
-							InstanceOverride.Properties.Size = real_size
-						end
 					elseif not ClassList[ClassName] then
 						if __DEBUG_MODE then
 							__DEBUG_MODE("Class not Found", ClassName)
