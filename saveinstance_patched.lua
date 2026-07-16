@@ -965,8 +965,6 @@ do
 		Blacklist = {
 			LuaSourceContainer = ArrayToDictionary({ "ScriptGuid" }),
 			Instance = ArrayToDictionary({ "UniqueId", "HistoryId" }),
-			-- InitialSize sur PartOperation = MeshSize (taille mesh original, pas la taille réelle)
-			-- On le blackliste pour que Size soit utilisé à la place lors de la conversion en Part
 			PartOperation = ArrayToDictionary({ "InitialSize" }),
 		},
 	}
@@ -1093,63 +1091,42 @@ do
 		TriangleMeshPart = {
 			FluidFidelityInternal = "FluidFidelity",
 		},
-		-- =====================================================================
-		-- BUG FIX #2 : MeshPart MeshId / TextureID
-		-- Ajout d'un double fallback robuste avec pcall sur chaque méthode.
-		-- Si toutes les méthodes échouent, on retourne "" pour éviter nil.
-		-- =====================================================================
 		MeshPart = {
 			InitialSize = "MeshSize",
 			MeshId = function(instance)
-				-- Tentative 1 : gethiddenpropertygethiddenproperty (alias global)
 				local o, r = pcall(gethiddenpropertygethiddenproperty, instance, "MeshId")
 				if o and r ~= nil then return r end
-				-- Tentative 2 : gethiddenproperty direct (via global_container)
 				if gethiddenproperty then
 					local o2, r2 = pcall(gethiddenproperty, instance, "MeshId")
 					if o2 and r2 ~= nil then return r2 end
 				end
-				-- Tentative 3 : fallback UGCValidationService
 				if gethiddenproperty_fallback then
 					local o3, r3 = pcall(gethiddenproperty_fallback, instance, "MeshId")
 					if o3 and r3 ~= nil then return r3 end
 				end
-				-- Tentative 4 : lecture directe (certains exécuteurs l'autorisent)
 				local o4, r4 = pcall(index, instance, "MeshId")
 				if o4 and r4 ~= nil then return r4 end
-				-- Dernier recours : chaîne vide pour éviter nil et crash
 				warn("[SaveInstance] Impossible de lire MeshId sur " .. instance:GetFullName())
 				return ""
 			end,
 			TextureID = function(instance)
-				-- Tentative 1 : gethiddenpropertygethiddenproperty (alias global)
 				local o, r = pcall(gethiddenpropertygethiddenproperty, instance, "TextureID")
 				if o and r ~= nil then return r end
-				-- Tentative 2 : gethiddenproperty direct
 				if gethiddenproperty then
 					local o2, r2 = pcall(gethiddenproperty, instance, "TextureID")
 					if o2 and r2 ~= nil then return r2 end
 				end
-				-- Tentative 3 : fallback UGCValidationService
 				if gethiddenproperty_fallback then
 					local o3, r3 = pcall(gethiddenproperty_fallback, instance, "TextureID")
 					if o3 and r3 ~= nil then return r3 end
 				end
-				-- Tentative 4 : lecture directe
 				local o4, r4 = pcall(index, instance, "TextureID")
 				if o4 and r4 ~= nil then return r4 end
 				warn("[SaveInstance] Impossible de lire TextureID sur " .. instance:GetFullName())
 				return ""
 			end,
 		},
-		-- =====================================================================
-		-- BUG FIX #1 (suite) : PartOperation.InitialSize avec fallback robuste
-		-- Sur une union convertie en Part, MeshSize peut ne pas exister.
-		-- On fallback sur Size puis Vector3(1,1,1) pour éviter nil.
-		-- =====================================================================
 		PartOperation = {
-			-- InitialSize retourne Size (taille réelle) et non MeshSize
-			-- pour éviter la mauvaise taille sur les unions converties en Part.
 			InitialSize = function(instance)
 				local ok, r = pcall(index, instance, "Size")
 				if ok and r ~= nil then return r end
@@ -1526,11 +1503,6 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		IsolateStarterPlayer = false,
 		RemovePlayerCharacters = true,
 
-		-- =====================================================================
-		-- BUG FIX #1 : SaveNotCreatable = true par défaut
-		-- Permet aux Unions (PartOperation) d'être sauvegardées même si elles
-		-- ont des children, au lieu d'être silencieusement skippées.
-		-- =====================================================================
 		SaveNotCreatable = true,
 
 		NotCreatableFixes = {
@@ -1546,11 +1518,6 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 			"TouchTransmitter",
 		},
 
-		-- =====================================================================
-		-- BUG FIX #1 (suite) : TreatUnionsAsParts = true par défaut
-		-- Convertit les UnionOperation en Part pour éviter les crashes liés
-		-- à la lecture de propriétés NotScriptable sur les unions.
-		-- =====================================================================
 		TreatUnionsAsParts = true,
 
 		IgnoreSharedStrings = EXECUTOR_NAME ~= "Wave" and true,
@@ -2218,9 +2185,6 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 
 		local itemstring = '<Item class="' .. className .. '" referent="' .. ref .. '"><Properties>'
 		if className == "Terrain" and realcheck then
-			-- =====================================================================
-			-- BUG FIX Terrain : guard nil renforcé sur SmoothGrid / PhysicsGrid
-			-- =====================================================================
 			local ok_sg, smoothgrid_raw = pcall(gethiddenpropertygethiddenproperty, workspace.Terrain, "SmoothGrid")
 			local ok_pg, physicsgrid_raw = pcall(gethiddenpropertygethiddenproperty, workspace.Terrain, "PhysicsGrid")
 
@@ -2388,24 +2352,26 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 					end
 				else
 					if TreatUnionsAsParts and instance:IsA("PartOperation") then
-						-- Lire Size AVANT la conversion en Part
-						-- pour éviter que InitialSize (MeshSize) écrase la vraie taille
+						-- =====================================================================
+						-- FIX SIZE : on lit Size AVANT la conversion, et on marque __ForceSize
+						-- pour bypasser le filtre IgnoreDefaultProperties sur Size=1,1,1
+						-- =====================================================================
 						local ok_size, real_size = pcall(index, instance, "Size")
 						ClassName, InstanceOverride = "Part", replaceClassName(instance, InstanceName, instance.ClassName)
 						ClassNameOverride = "BasePart"
-						-- Injecter Size dans l'override pour qu'il soit utilisé à la place de InitialSize
 						if ok_size and real_size then
 							if not InstanceOverride then
 								InstanceOverride = InstancesOverrides[instance]
 							end
 							if not InstanceOverride then
-								InstanceOverride = { Properties = {} }
+								InstanceOverride = { Properties = {}, __ForceSize = true }
 								InstancesOverrides[instance] = InstanceOverride
 							end
 							if not InstanceOverride.Properties then
 								InstanceOverride.Properties = {}
 							end
 							InstanceOverride.Properties.Size = real_size
+							InstanceOverride.__ForceSize = true
 						end
 					elseif not ClassList[ClassName] then
 						if __DEBUG_MODE then
@@ -2514,8 +2480,14 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 							if new_def_inst then
 								default_instance[defaultKey] = index(new_def_inst, defaultKey)
 							end
+							-- =====================================================================
+							-- FIX SIZE : si c'est "Size" et que l'instance a __ForceSize,
+							-- on ne skip pas même si la valeur == default (Vector3(1,1,1))
+							-- =====================================================================
 							if default_instance[defaultKey] == raw then
-								continue
+								if not (PropertyName == "Size" and InstanceOverride and InstanceOverride.__ForceSize) then
+									continue
+								end
 							end
 						end
 
