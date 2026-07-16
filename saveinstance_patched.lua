@@ -965,6 +965,9 @@ do
 		Blacklist = {
 			LuaSourceContainer = ArrayToDictionary({ "ScriptGuid" }),
 			Instance = ArrayToDictionary({ "UniqueId", "HistoryId" }),
+			-- InitialSize sur PartOperation = MeshSize (taille mesh original, pas la taille réelle)
+			-- On le blackliste pour que Size soit utilisé à la place lors de la conversion en Part
+			PartOperation = ArrayToDictionary({ "InitialSize" }),
 		},
 	}
 
@@ -1493,12 +1496,7 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		IgnoreDefaultPlayerScripts = EXECUTOR_NAME ~= "Wave" and true,
 		SaveBytecode = false,
 
-		IgnoreProperties = {
-			-- InitialSize sur PartOperation contient MeshSize (taille du mesh original)
-			-- et non Size (taille réelle), ce qui cause une mauvaise taille sur les unions
-			-- converties en Part. On l'ignore complètement, Size sera utilisé à la place.
-			"InitialSize",
-		},
+		IgnoreProperties = {},
 
 		IgnoreList = { "CoreGui", "CorePackages" },
 
@@ -2390,8 +2388,25 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 					end
 				else
 					if TreatUnionsAsParts and instance:IsA("PartOperation") then
+						-- Lire Size AVANT la conversion en Part
+						-- pour éviter que InitialSize (MeshSize) écrase la vraie taille
+						local ok_size, real_size = pcall(index, instance, "Size")
 						ClassName, InstanceOverride = "Part", replaceClassName(instance, InstanceName, instance.ClassName)
 						ClassNameOverride = "BasePart"
+						-- Injecter Size dans l'override pour qu'il soit utilisé à la place de InitialSize
+						if ok_size and real_size then
+							if not InstanceOverride then
+								InstanceOverride = InstancesOverrides[instance]
+							end
+							if not InstanceOverride then
+								InstanceOverride = { Properties = {} }
+								InstancesOverrides[instance] = InstanceOverride
+							end
+							if not InstanceOverride.Properties then
+								InstanceOverride.Properties = {}
+							end
+							InstanceOverride.Properties.Size = real_size
+						end
 					elseif not ClassList[ClassName] then
 						if __DEBUG_MODE then
 							__DEBUG_MODE("Class not Found", ClassName)
