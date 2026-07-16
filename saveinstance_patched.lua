@@ -1503,7 +1503,7 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		IgnoreDefaultProperties = true,
 		IgnoreNotArchivable = true,
 		IgnorePropertiesOfNotScriptsOnScriptsMode = false,
-		IgnoreSpecialProperties = ArrayToDictionary({ "Fluxus", "Delta", "Solara" })[EXECUTOR_NAME] or false,
+		IgnoreSpecialProperties = false, -- Force la lecture des propriétés NotScriptable sur tous les exécuteurs
 
 		IsolateLocalPlayer = false,
 		IsolateLocalPlayerCharacter = false,
@@ -1536,7 +1536,7 @@ local function synsaveinstance(CustomOptions, CustomOptions2)
 		-- Convertit les UnionOperation en Part pour éviter les crashes liés
 		-- à la lecture de propriétés NotScriptable sur les unions.
 		-- =====================================================================
-		TreatUnionsAsParts = true,
+		TreatUnionsAsParts = false,
 
 		IgnoreSharedStrings = EXECUTOR_NAME ~= "Wave" and true,
 		SharedStringOverwrite = false,
